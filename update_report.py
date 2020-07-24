@@ -213,11 +213,12 @@ def main():
 
 def main_graphic():
     root = tk.Tk()
-    canvas1 = tk.Canvas(root, width=300, height=300, bg='lightsteelblue')
+    root.title("CTWP Seismic Reports")
+    canvas1 = tk.Canvas(root, width=500, height=500, bg='lightsteelblue')
     canvas1.pack()
     browseButton_Excel = tk.Button(text='Choose Excel with Seismic Data', command=getExcel, bg='green', fg='white',
                                    font=('helvetica', 12, 'bold'))
-    canvas1.create_window(150, 150, window=browseButton_Excel)
+    canvas1.create_window(250, 250, window=browseButton_Excel)
     root.mainloop()
 
 
@@ -225,9 +226,10 @@ def getExcel():
     global df
 
     import_file_path = filedialog.askopenfilename()
-    df = pd.read_excel(import_file_path)
-    print(df)
+    # df = pd.read_excel(import_file_path)
+    df = load_workbook(filename=import_file_path).active
+    print(df['A2'])
 
 
 if __name__ == "__main__":
-    main()
+    main_graphic()
