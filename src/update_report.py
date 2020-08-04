@@ -1,5 +1,4 @@
 from openpyxl.styles import PatternFill, Font, Border, Alignment
-from openpyxl import load_workbook
 from copy import copy
 import numpy as np
 
@@ -9,15 +8,20 @@ class SeismicReport:
         self.month = None
         self.year = None
         self.report = None
-        # try:
-        #     self.report = load_workbook(file_name)
-        #     self.clean_report()
-        # except FileNotFoundError:
-        #     print("Report file not found")
+        self.prsn_data = self.iris_data = self.ntwc_data = self.ptwc_data = None
+        self.comments = ""
 
-    def update_prsn(self, data):
+    def update_prsn(self):
+        data = self.prsn_data
         report_sheet = self.report.worksheets[0]
         i = 2  # counter to keep track of row number in report
+        if not data:
+            while report_sheet['F' + str(i)].value:
+                report_sheet['M' + str(i)].value = None
+                i += 1
+            self.comments += "No data for PRSN \n"
+            return
+
         while report_sheet['F' + str(i)].value:
             new_latency = -1  # necessary because different sensors can report different latencies so we get the max
             for j in range(2, data.max_row + 1):
@@ -25,11 +29,14 @@ class SeismicReport:
                     if new_latency < float(data['D' + str(j)].value):
                         new_latency = float(data['D' + str(j)].value)
                     if not report_sheet['H' + str(i)].value:  # column H is PRSN channel
-                        print(f"PRSN channel added in line {i}")
+                        self.comments += f"PRSN channel added in line {i} \n"
+                        # print(f"PRSN channel added in line {i}")
                     elif data['B' + str(j)].value.strip() not in report_sheet['H' + str(i)].value.split('/'):
-                        print(f"PRSN channel change in line {i}")
+                        self.comments += f"PRSN channel change in line {i} \n"
+                        # print(f"PRSN channel change in line {i}")
                     if report_sheet['G' + str(i)].value.strip() != data['C' + str(j)].value.strip():  # column G is network code
-                        print(f"PRSN network code change in line {i}")
+                        self.comments += f"PRSN network code change in line {i} \n"
+                        # print(f"PRSN network code change in line {i}")
                     if j == data.max_row or report_sheet['F' + str(i)].value != data['A' + str(j + 1)].value:  # to stop search
                         break
             if new_latency > -1:
@@ -38,9 +45,17 @@ class SeismicReport:
                 self.update_latency(old_cell=report_sheet['M' + str(i)], new_cell_value=None, agency="PRSN")
             i += 1
 
-    def update_iris(self, data):
+    def update_iris(self):
+        data = self.iris_data
         report_sheet = self.report.worksheets[0]
         i = 2  # counter to keep track of row number in report
+        if not data:
+            while report_sheet['F' + str(i)].value:
+                report_sheet['N' + str(i)].value = None
+                i += 1
+            self.comments += "No data for IRIS \n"
+            return
+
         while report_sheet['F' + str(i)].value:
             new_latency = -1  # necessary because different sensors can report different latencies so we get the max
             for j in range(1, data.max_row + 1):
@@ -49,15 +64,18 @@ class SeismicReport:
                     if new_latency < float(data['I' + str(j)].value.rstrip("%")):
                         new_latency = float(data['I' + str(j)].value.rstrip("%"))
                     if not report_sheet['I' + str(i)].value:  # column I is IRIS channel
-                        print(f"IRIS channel added in line {i}")
+                        self.comments += f"IRIS channel added in line {i} \n"
+                        # print(f"IRIS channel added in line {i}")
                     else:
                         d = data['E' + str(j)].value.strip()
                         r = report_sheet['I' + str(i)].value.split('/')
                         s = float(data['I' + str(j)].value.rstrip("%"))
                         if d not in r and s > 3:
-                            print(f"IRIS channel change in line {i}")
+                            self.comments += f"IRIS channel change in line {i} \n"
+                            # print(f"IRIS channel change in line {i}")
                     if report_sheet['G' + str(i)].value.strip() != data['B' + str(j)].value.strip():  # column G is network code
-                        print(f"IRIS network code change in line {i}")
+                        self.comments += f"IRIS network code change in line {i} \n"
+                        # print(f"IRIS network code change in line {i}")
                     if data['A' + str(j + 1)].value.strip() != "-Channel":  # to stop search
                         break
             if new_latency > -1:
@@ -66,10 +84,20 @@ class SeismicReport:
                 self.update_latency(old_cell=report_sheet['N' + str(i)], new_cell_value=None, agency="IRIS")
             i += 1
 
-    def update_ntwc(self, data):
+    def update_ntwc(self):
+        data = self.ntwc_data
+        report_sheet = self.report.worksheets[0]
+        i = 2  # counter to keep track of row number in report
+        if not data:    # if NTWC hasn't provided the data for the current month
+            while report_sheet['F' + str(i)].value:
+                report_sheet['O' + str(i)].value = None
+                i += 1
+            self.comments += "No data for NTWC \n"
+            return
+
         # to find the column number of the current month
-        for i in range(15, 27):
-            c = data.cell(row=6, column=i)
+        for x in range(15, 27):
+            c = data.cell(row=6, column=x)
             if c.value == self.month:
                 month_column = c.column_letter
 
@@ -82,48 +110,52 @@ class SeismicReport:
                 max_row = n
                 break
 
-        report_sheet = self.report.worksheets[0]
-        i = 2  # counter to keep track of row number in report
         while report_sheet['F' + str(i)].value:
             for j in range(min_row, max_row + 1):  # counter to keep track of row number in data
                 if report_sheet['F' + str(i)].value.strip() == data['L' + str(j)].value.strip():
                     self.update_latency(report_sheet['O' + str(i)], 100 - float(data[month_column + str(j)].value), "NTWC")
-                    # report['O' + str(i)].value = 100 - data[month_column + str(j)].value  # NTWC data is in column O
                     if report_sheet['J' + str(i)].value is None:  # column J is NTWC channel
-                        print(f"NTWC channel added in line {i}")
+                        self.comments += f"NTWC channel added in line {i} \n"
                     elif report_sheet['J' + str(i)].value.strip() != data['M' + str(j)].value.strip():
-                        print(f"NTWC channel change in line {i}")
+                        self.comments += f"NTWC channel change in line {i} \n"
                     if report_sheet['G' + str(i)].value.strip() != data['N' + str(j)].value.strip():  # column N is network code
-                        print(f"NTWC network code change in line {i}")
+                        self.comments += f"NTWC network code change in line {i} \n"
                     break
                 if j == max_row and report_sheet['O' + str(i)].value is not None:
                     self.update_latency(old_cell=report_sheet['O' + str(i)], new_cell_value=None, agency="NTWC")
             i += 1
 
-    def update_ptwc(self, data):
+    def update_ptwc(self):
+        data = self.ptwc_data
         report_sheet = self.report.worksheets[0]
         i = 2  # counter to keep track of row number in report
+        if not data:
+            while report_sheet['F' + str(i)].value:
+                report_sheet['P' + str(i)].value = None
+                i += 1
+            self.comments += "No data for PTWC \n"
+            return
+
         while report_sheet['F' + str(i)].value:
             for j in range(2, data.max_row + 1):  # counter to keep track of row number in data
                 station_info = data['C' + str(j)].value.split('_')
                 if report_sheet['F' + str(i)].value.strip() == station_info[0]:  # [0] is station code
                     self.update_latency(report_sheet['P' + str(i)], float(data['F' + str(j)].value), "PTWC")
-                    # report['P' + str(i)].value = float(data['F' + str(j)].value)  # PTWC data is in column P
                     if report_sheet['K' + str(i)].value is None:  # column K is PTWC channel
-                        print(f"PTWC channel added in line {i}")
+                        self.comments += f"PTWC channel added in line {i} \n"
                     elif report_sheet['K' + str(i)].value.strip() != station_info[1].split('.')[0]:
-                        print(f"PTWC channel change in line {i}")
+                        self.comments += f"PTWC channel change in line {i} \n"
                     if report_sheet['G' + str(i)].value.strip() != station_info[1].split('.')[1]:
-                        print(f"PTWC network code change in line {i}")
+                        self.comments += f"PTWC network code change in line {i} \n"
                     # to test if coordinates change by more than 1 degree
                     if report_sheet['D' + str(i)].value is None:
-                        print(f"PTWC latitude missing in line {i}")
+                        self.comments += f"PTWC latitude missing in line {i} \n"
                     elif abs(float(report_sheet['D' + str(i)].value) - float(data['D' + str(j)].value)) > 1:
-                        print(f"PTWC latitude change in line {i}")
+                        self.comments += f"PTWC latitude change in line {i} \n"
                     if report_sheet['E' + str(i)].value is None:
-                        print(f"PTWC longitude missing in line {i}")
+                        self.comments += f"PTWC longitude missing in line {i} \n"
                     elif abs(float(report_sheet['E' + str(i)].value) - float(data['E' + str(j)].value)) > 1:
-                        print(f"PTWC longitude change in line {i}")
+                        self.comments += f"PTWC longitude change in line {i} \n"
                     break
                 if j == data.max_row and report_sheet['P' + str(i)].value is not None:
                     self.update_latency(old_cell=report_sheet['P' + str(i)], new_cell_value=None, agency="PTWC")
@@ -134,10 +166,10 @@ class SeismicReport:
         change = None
         if old_cell.value is None:  # mark if an agency starts to report data for a station
             change = "(A)"
-            print(f"Station {report_sheet['F' + str(old_cell.row)].value} added for {agency}")
+            self.comments += f"Station {report_sheet['F' + str(old_cell.row)].value} added for {agency} \n"
         elif new_cell_value is None:
             change = "(X)"
-            print(f"Station {report_sheet['F' + str(old_cell.row)].value} removed for {agency}")
+            self.comments += f"Station {report_sheet['F' + str(old_cell.row)].value} removed for {agency} \n"
         elif new_cell_value - float(old_cell.value) >= 10:  # mark any change of 10% or more
             change = "(U)"
         elif float(old_cell.value) - new_cell_value >= 10:
@@ -174,12 +206,12 @@ class SeismicReport:
                 report_sheet['L' + str(i)].value = "Contributing-RTX"
                 report_sheet['L' + str(i)].font = Font(b=True)
                 report_sheet['L' + str(i)].fill = PatternFill(start_color='CC99FF', end_color='CC99FF', fill_type='solid')
-                print(f'Status change in line {i}')
+                self.comments += f'Status change in line {i} \n'
             elif down and not contributing and report_sheet['L' + str(i)].value.strip() != "Down":
                 report_sheet['L' + str(i)].value = "Down"
                 report_sheet['L' + str(i)].font = Font(b=True)
                 report_sheet['L' + str(i)].fill = PatternFill(start_color='CC99FF', end_color='CC99FF', fill_type='solid')
-                print(f'Status change in line {i}')
+                self.comments += f'Status change in line {i} \n'
             elif not contributing and not down:  # if no agency has data for this station
                 report_sheet['F' + str(i)].fill = PatternFill(start_color='FFA500', end_color='FFA500', fill_type='solid')
             elif not multiple_agencies:  # if only one agency has data for this station
@@ -226,7 +258,7 @@ class SeismicReport:
                             self.report['CARIBE-contributing'][x + str(status_columns[c.value][2]+1)].fill = \
                                 copy(self.report.worksheets[0][y + str(i)].fill)
             else:
-                print(f"Incorrect status in line {i}")
+                self.comments += f'Incorrect status in line {i} \n'
             i += 1
             c = self.report.worksheets[0]['L' + str(i)]
 
@@ -260,7 +292,7 @@ class SeismicReport:
             sheet[v[1]][10][0].value = 0    # the "More" bin
             sheet[v[1]][11][0].value = n - len(data_col) - 2    # counting the blanks
 
-    def clean_report(self):  # report must be a Workbook, not a Worksheet
+    def clear_report(self):  # report must be a Workbook, not a Worksheet
         a = 2  # counter to keep track of row number in main sheet of report
         while self.report.worksheets[0]['F' + str(a)].value:
             for c in self.report.worksheets[0]['A' + str(a) + ':L' + str(a)][0]:
@@ -307,23 +339,14 @@ class SeismicReport:
 
     def save(self):
         self.report.worksheets[0].title = f"{self.month[:3]}{self.year[2:]}"
-        self.report.save(f"Seismic Report {self.month[:3]} {self.year}.xlsx")
+        report_name = f"Seismic Report {self.month[:3]} {self.year}.xlsx"
+        if not self.prsn_data:
+            report_name = report_name[:-5] + " (no PRSN)" + report_name[-5:]
+        if not self.iris_data:
+            report_name = report_name[:-5] + " (no IRIS)" + report_name[-5:]
+        if not self.ntwc_data:
+            report_name = report_name[:-5] + " (no NTWC)" + report_name[-5:]
+        if not self.ptwc_data:
+            report_name = report_name[:-5] + " (no PTWC)" + report_name[-5:]
+        self.report.save(report_name)
 
-
-def main():
-    report = SeismicReport(file_name="SeismicDataAvailability_December2019.xlsx")
-    ptwc_data = load_workbook(filename="Caribbean_stats_20200101-20200131.xlsx").active
-    iris_data = load_workbook(filename="IRIS_Uptime_Report_for__CARIBE-EWS_-_2020_01_01-2020_01_31.xlsx").active
-    prsn_data = load_workbook(filename="PRSN Jan 2020.xlsx").active
-    ntwc_data = load_workbook(filename="Book2.xlsx").active  # get the first sheet
-    report.update_prsn(prsn_data)
-    report.update_iris(iris_data)
-    report.update_ntwc(ntwc_data)
-    report.update_ptwc(ptwc_data)
-    report.update_status()
-    report.analysis()
-    report.save()
-
-
-if __name__ == "__main__":
-    main()

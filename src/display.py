@@ -1,8 +1,9 @@
 import tkinter as tk
-from tkinter import filedialog
+from tkinter import filedialog, ttk
 from PIL import Image, ImageTk
 from openpyxl import load_workbook
 from src.update_report import SeismicReport
+import PyInstaller
 
 
 class ReportDisplay(tk.Tk):
@@ -12,20 +13,20 @@ class ReportDisplay(tk.Tk):
         self.geometry("700x500")
         self.title("CTWP Seismic Reports")
         self.canvas = tk.Canvas(self, width=700, height=500)
-        self.map_image = Image.open("caribbean_map3.png")
+        self.map_image = Image.open("images/caribbean_map.png")
         self.map_image_copy = self.map_image.copy()
         self.background_image = ImageTk.PhotoImage(self.map_image)
         self.background = tk.Label(self.canvas, image=self.background_image)
         self.background.pack(expand='yes', fill='both')
         self.background.bind('<Configure>', self._resize_image)
-        v2 = tk.StringVar(self)
-        v2.set('Enter the year: ')
-        self.year_entry = tk.Entry(master=self.canvas, textvariable=v2, width=20, justify='center')
+        entry_text = tk.StringVar(self)
+        entry_text.set('Enter the year: ')
+        self.year_entry = tk.Entry(master=self.canvas, textvariable=entry_text, justify='left')
         months = ['January', 'February', 'March', 'April', 'May', 'June',
                   'July', 'August', 'September', 'November', 'December']
-        self.v1 = tk.StringVar(self)
-        self.v1.set('--Select the month--')
-        self.month_optionmenu = tk.OptionMenu(self.canvas, self.v1, *months)
+        self.optionmenu_text = tk.StringVar(self)
+        self.optionmenu_text.set('--Select the month--')
+        self.month_optionmenu = tk.OptionMenu(self.canvas, self.optionmenu_text, *months)
         self.buttons()
         self.canvas.pack(expand='yes', fill='both')
 
@@ -39,42 +40,76 @@ class ReportDisplay(tk.Tk):
 
     def get_report(self):
         self.sr.report = load_workbook(filename=filedialog.askopenfilename())
-        self.sr.clean_report()
 
     def prsn(self):
         try:
             data = load_workbook(filename=filedialog.askopenfilename()).active
-            self.sr.update_prsn(data)
+            self.sr.prsn_data = data
         except FileNotFoundError:
             print("PRSN file not found")
 
     def iris(self):
         try:
             data = load_workbook(filename=filedialog.askopenfilename()).active
-            self.sr.update_iris(data)
+            self.sr.iris_data = data
         except FileNotFoundError:
             print("IRIS file not found")
 
     def ntwc(self):
-        self.sr.month = self.v1.get()
         try:
             data = load_workbook(filename=filedialog.askopenfilename()).active
-            self.sr.update_ntwc(data)
+            self.sr.ntwc_data = data
         except FileNotFoundError:
             print("NTWC file not found")
 
     def ptwc(self):
         try:
             data = load_workbook(filename=filedialog.askopenfilename()).active
-            self.sr.update_ptwc(data)
+            self.sr.ptwc_data = data
         except FileNotFoundError:
             print("PTWC file not found")
 
+    # source: https://blog.tecladocode.com/tkinter-scrollable-frames/
+    def create_output_log(self):
+        output_log_window = tk.Tk()
+        output_log_window.wm_title("Output Log")
+        container = ttk.Frame(output_log_window)
+        comments = tk.StringVar()
+        comments.set(self.sr.comments)
+        canvas2 = tk.Canvas(container)
+        scrollbar = ttk.Scrollbar(container, orient='vertical', command=canvas2.yview)
+        scrollable_frame = ttk.Frame(canvas2)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas2.configure(
+                scrollregion=canvas2.bbox("all")
+            )
+        )
+
+        canvas2.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas2.configure(yscrollcommand=scrollbar.set)
+        ttk.Label(scrollable_frame, text=self.sr.comments).pack()
+        # close_popup = ttk.Button(output_log_window, text="Done", command=output_log_window.destroy)
+        # canvas2.create_window(100, 400, window=close_popup)
+        container.pack()
+        canvas2.pack(side='left', fill='both', expand=True)
+        scrollbar.pack(side='right', fill='y')
+        output_log_window.mainloop()
+
     def complete_report(self):
         self.sr.year = self.year_entry.get()[-4:]
+        self.sr.month = self.optionmenu_text.get()
+        self.sr.clear_report()
+        self.sr.update_prsn()
+        self.sr.update_iris()
+        self.sr.update_ntwc()
+        self.sr.update_ptwc()
         self.sr.update_status()
         self.sr.analysis()
         self.sr.save()
+        output_log = tk.Button(self.canvas, text='Output log', command=self.create_output_log, font=('helvetica', 12, 'bold'))
+        self.canvas.create_window(500, 400, window=output_log)
 
     def buttons(self):
         report_button = tk.Button(self.canvas, text="Select last month's report", command=self.get_report, font=('helvetica', 12, 'bold'), width=25)
@@ -82,7 +117,7 @@ class ReportDisplay(tk.Tk):
         iris_button = tk.Button(self.canvas, text='Select IRIS data', command=self.iris, font=('helvetica', 12, 'bold'), width=25)
         ntwc_button = tk.Button(self.canvas, text='Select NTWC data', command=self.ntwc, font=('helvetica', 12, 'bold'), width=25)
         ptwc_button = tk.Button(self.canvas, text='Select PTWC data', command=self.ptwc, font=('helvetica', 12, 'bold'), width=25)
-        complete_button = tk.Button(self.canvas, text='Finish report', command=self.complete_report, font=('helvetica', 12, 'bold'), width=25)
+        complete_button = tk.Button(self.canvas, text='Complete report', command=self.complete_report, font=('helvetica', 12, 'bold'), width=25)
         self.canvas.create_window(500, 125, window=report_button)
         self.canvas.create_window(500, 175, window=prsn_button)
         self.canvas.create_window(500, 225, window=iris_button)
@@ -105,9 +140,6 @@ class ReportDisplay(tk.Tk):
         self.canvas.create_window(150, 250, window=month_dropdown)
 
 
-# TODO is global needed that many times??
-#
-# TODO add underscore to the beginning of each (internal) function
 if __name__ == '__main__':
     root = ReportDisplay()
     root.mainloop()
