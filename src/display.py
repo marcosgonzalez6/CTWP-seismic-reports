@@ -10,15 +10,22 @@ class ReportDisplay(tk.Tk):
     def __init__(self):
         super(ReportDisplay, self).__init__()
         self.sr = SeismicReport()
-        self.geometry("700x500")
+        self.geometry("700x500+200+100")
         self.title("CTWP Seismic Reports")
         self.canvas = tk.Canvas(self, width=700, height=500)
+
+        # background image
         self.map_image = Image.open("images/caribbean_map.png")
         self.map_image_copy = self.map_image.copy()
         self.background_image = ImageTk.PhotoImage(self.map_image)
         self.background = tk.Label(self.canvas, image=self.background_image)
         self.background.pack(expand='yes', fill='both')
         self.background.bind('<Configure>', self._resize_image)
+
+        # widgets on main window
+        # instructions_text = tk.StringVar(self)
+        # instructions_text.set(open('instructions.txt', 'r').read())
+        # self.instructions = ttk.Label(master=self.canvas, textvariable=instructions_text)
         entry_text = tk.StringVar(self)
         entry_text.set('Enter the year: ')
         self.year_entry = tk.Entry(master=self.canvas, textvariable=entry_text, justify='left')
@@ -28,6 +35,7 @@ class ReportDisplay(tk.Tk):
         self.optionmenu_text.set('--Select the month--')
         self.month_optionmenu = tk.OptionMenu(self.canvas, self.optionmenu_text, *months)
         self.buttons()
+
         self.canvas.pack(expand='yes', fill='both')
 
     # source: https://stackoverflow.com/questions/24061099/tkinter-resize-background-image-to-window-size
@@ -69,13 +77,20 @@ class ReportDisplay(tk.Tk):
         except FileNotFoundError:
             print("PTWC file not found")
 
+    def display_instructions(self):
+        instructions_window = tk.Tk()
+        instructions_window.wm_title("Instructions")
+        container = ttk.Frame(instructions_window)
+        ttk.Label(master=instructions_window, text=open('instructions.txt', 'r').read(), wraplength=500).pack()
+        # container.pack()
+        instructions_window.mainloop()
+
     # source: https://blog.tecladocode.com/tkinter-scrollable-frames/
     def create_output_log(self):
         output_log_window = tk.Tk()
         output_log_window.wm_title("Output Log")
+        # output_log_window.geometry("700x500+200+100")
         container = ttk.Frame(output_log_window)
-        comments = tk.StringVar()
-        comments.set(self.sr.comments)
         canvas2 = tk.Canvas(container)
         scrollbar = ttk.Scrollbar(container, orient='vertical', command=canvas2.yview)
         scrollable_frame = ttk.Frame(canvas2)
@@ -89,9 +104,7 @@ class ReportDisplay(tk.Tk):
 
         canvas2.create_window((0, 0), window=scrollable_frame, anchor="nw")
         canvas2.configure(yscrollcommand=scrollbar.set)
-        ttk.Label(scrollable_frame, text=self.sr.comments).pack()
-        # close_popup = ttk.Button(output_log_window, text="Done", command=output_log_window.destroy)
-        # canvas2.create_window(100, 400, window=close_popup)
+        ttk.Label(master=scrollable_frame, text=self.sr.comments, width=500).pack()
         container.pack()
         canvas2.pack(side='left', fill='both', expand=True)
         scrollbar.pack(side='right', fill='y')
@@ -112,6 +125,7 @@ class ReportDisplay(tk.Tk):
         self.canvas.create_window(500, 400, window=output_log)
 
     def buttons(self):
+        instructions_button = tk.Button(self.canvas, text="Instructions", command=self.display_instructions, font=('helvetica', 12, 'bold'), width=15)
         report_button = tk.Button(self.canvas, text="Select last month's report", command=self.get_report, font=('helvetica', 12, 'bold'), width=25)
         prsn_button = tk.Button(self.canvas, text='Select PRSN data', command=self.prsn, font=('helvetica', 12, 'bold'), width=25)
         iris_button = tk.Button(self.canvas, text='Select IRIS data', command=self.iris, font=('helvetica', 12, 'bold'), width=25)
@@ -124,6 +138,7 @@ class ReportDisplay(tk.Tk):
         self.canvas.create_window(500, 275, window=ntwc_button)
         self.canvas.create_window(500, 325, window=ptwc_button)
         self.canvas.create_window(500, 375, window=complete_button)
+        self.canvas.create_window(80, 40, window=instructions_button)
 
         self.canvas.create_window(200, 200, window=self.year_entry)
         self.canvas.create_window(200, 250, window=self.month_optionmenu)
