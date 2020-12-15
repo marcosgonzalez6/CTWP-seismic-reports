@@ -2,11 +2,17 @@ INSTRUCTIONS
 
 1. The data file provided by NTWC cannot be read by OpenPyXL. You must copy and paste the data from columns K up to the column with the current month into a new Excel workbook. Keep the same cell locations (the top left cell should be K2).
 
-2. If any file has extension ".xsl", change it to ".xlsx".
+2. If any file has extension ".xsl", change it to ".xlsx". If the formate of the data file has changed from the previous month, the code must be altered (consult Marcos Gonzalez).
 
 3. Enter the year and month for which the report will be done.
 
-4. Select the report from the month before and the data files from each agency with the corresponding buttons. Click "Complete report".
+4. Select the report from the month before and the data files from each agency with the corresponding buttons.
+
+If you get an error like the following after selecting the data from NTWC, ignore it.
+/Users/marcosjoel/opt/anaconda3/lib/python3.7/site-packages/openpyxl/worksheet/_reader.py:300: UserWarning: Conditional Formatting extension is not supported and will be removed
+  warn(msg)
+
+Click "Complete report".
 
 5. When the report is complete, the "Output log" button will appear. Click the button to open a window with the notable changes in the new report. You should double check each of these changes and take appropriate action if anything stands out.
 
